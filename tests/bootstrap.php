@@ -11,7 +11,7 @@ function esc_attr($t) { return htmlspecialchars((string) $t, ENT_QUOTES); }
 function get_option($k, $d = false) { return array_key_exists($k, $GLOBALS['wp_options']) ? $GLOBALS['wp_options'][$k] : $d; }
 function update_option($k, $v) { $GLOBALS['wp_options'][$k] = $v; return true; }
 function wp_json_encode($v) { return json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); }
-function get_bloginfo($k) { return $k === 'name' ? 'Test Mağaza' : ''; }
+function get_bloginfo($k) { return $k === 'name' ? esc_html(get_option('blogname', 'Test Mağaza')) : ''; }
 function add_action($h, $cb, $p = 10, $a = 1) { $GLOBALS['wp_actions'][$h][] = $cb; }
 function add_filter($h, $cb, $p = 10, $a = 1) { $GLOBALS['wp_actions'][$h][] = $cb; }
 function wc_get_order_status_name($s) { $m = ['processing' => 'Hazırlanıyor', 'completed' => 'Tamamlandı']; return $m[$s] ?? $s; }
@@ -60,7 +60,11 @@ function wp_send_json_success($d = null, $c = null) { throw new Json_Sent(true, 
 function wp_send_json_error($d = null, $c = null) { throw new Json_Sent(false, $d, $c); }
 function absint($v) { return abs((int) $v); }
 function wp_unslash($v) { return is_string($v) ? stripslashes($v) : $v; }
-function sanitize_textarea_field($v) { return trim(strip_tags((string) $v)); }
+function sanitize_textarea_field($v) { return trim(preg_replace('/%[a-f0-9]{2}/i', '', strip_tags((string) $v))); } // WP strips octets
+function wp_strip_all_tags($v) { return strip_tags((string) $v); }
+function wp_check_invalid_utf8($v) { return (string) $v; }
+function wp_specialchars_decode($v, $q = ENT_NOQUOTES) { return htmlspecialchars_decode((string) $v, ENT_QUOTES); }
+function home_url($p = '') { return 'https://magaza.example'; }
 function sanitize_text_field($v) { return trim(strip_tags((string) $v)); }
 function get_current_user_id() { return $GLOBALS['current_user']; }
 function wp_get_current_user() { return (object) ['ID' => $GLOBALS['current_user'], 'display_name' => 'Ali Personel']; }

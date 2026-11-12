@@ -48,6 +48,9 @@ add_action('plugins_loaded', function () {
     }
 
     add_filter('woocommerce_get_settings_pages', function ($pages) {
+        if (! class_exists('WC_Settings_Page')) {
+            return $pages;
+        }
         require_once __DIR__ . '/src/class-vois-wc-settings.php';
         $pages[] = new Vois_WC_Settings_Page();
 

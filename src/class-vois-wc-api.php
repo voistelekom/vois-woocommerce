@@ -77,10 +77,28 @@ final class Vois_WC_Api
             'sender'      => (string) $sender,
             'number'      => (string) $number,
             'content'     => (string) $content,
-            'encoding'    => preg_match('/[ğüşıöçĞÜŞİÖÇ]/u', (string) $content) ? 1 : 0,
+            'encoding'    => self::encoding((string) $content),
             'commercial'  => false,
             'customID'    => substr((string) $custom_id, 0, 100),
         ];
+    }
+
+    /** 0 = GSM-7, 1 = GSM-7 + Turkish letters, 2 = Unicode (anything else: emoji, â, ’, –, Cyrillic …). */
+    public static function encoding($text)
+    {
+        $gsm = '@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà^{}\\[~]|€' . "\n\r";
+        $turkish = 'ğüşıöçĞÜŞİÖÇ';
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $level = 0;
+        foreach ($chars ?: [] as $c) {
+            if (mb_strpos($turkish, $c) !== false && mb_strpos($gsm, $c) === false) {
+                $level = 1;
+            } elseif (mb_strpos($gsm, $c) === false) {
+                return 2;
+            }
+        }
+
+        return $level;
     }
 
     private function request($method, $path, $body = null, $timeout = self::TIMEOUT)

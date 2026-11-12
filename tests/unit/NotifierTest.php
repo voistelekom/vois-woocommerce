@@ -52,7 +52,7 @@ final class NotifierTest extends TestCase
         $this->notifier()->handle(7, 'customer', 'processing');
         $this->assertCount(1, $this->sent);
         $b = $this->sent[0];
-        $this->assertSame(['905321234567', 'Sayın Ayşe, 7 hazırlanıyor.', 'MAGAZA', 'WooCommerce siparis 7', 'wc-7-processing'], [$b['number'], $b['content'], $b['sender'], $b['title'], $b['customID']]);
+        $this->assertSame(['905321234567', 'Sayın Ayşe, 7 hazırlanıyor.', 'MAGAZA', 'WooCommerce siparis 7', 'wc-' . substr(md5('https://magaza.example'), 0, 6) . '-7-processing'], [$b['number'], $b['content'], $b['sender'], $b['title'], $b['customID']]);
         $o = $GLOBALS['wc_orders'][7];
         $this->assertStringContainsString('paket #555', $o->notes[0]);
         $this->assertStringContainsString('0532***4567', $o->notes[0]);
@@ -111,7 +111,7 @@ final class NotifierTest extends TestCase
         $n->handle(7, 'admin', 'new');
         $n->handle(7, 'admin', 'new');
         $this->assertSame(['905441112233', '905559998877'], array_column($this->sent, 'number'));
-        $this->assertSame('wc-7-admin-905441112233', $this->sent[0]['customID']);
+        $this->assertSame('wc-' . substr(md5('https://magaza.example'), 0, 6) . '-7-admin-905441112233', $this->sent[0]['customID']);
         $this->assertCount(1, $GLOBALS['wc_orders'][7]->notes);
     }
 
@@ -138,7 +138,26 @@ final class NotifierTest extends TestCase
         $r = $n->send_manual($GLOBALS['wc_orders'][7], 'Kargonuz yarın çıkıyor.');
         $this->assertTrue($r['ok']);
         $this->assertCount(2, $this->sent);
-        $this->assertStringStartsWith('wc-7-manual-', $this->sent[1]['customID']);
+        $this->assertStringStartsWith('wc-' . substr(md5('https://magaza.example'), 0, 6) . '-7-manual-', $this->sent[1]['customID']);
         $this->assertSame('Kargonuz yarın çıkıyor.', $this->sent[1]['content']);
+    }
+
+    public function test_admin_sms_hooks_follow_paid_transitions_not_checkout(): void
+    {
+        $GLOBALS['wp_actions'] = [];
+        $this->notifier()->register();
+        $h = array_keys($GLOBALS['wp_actions']);
+        $this->assertNotContains('woocommerce_checkout_order_processed', $h);
+        $this->assertNotContains('woocommerce_store_api_checkout_order_processed', $h);
+        foreach (['pending_to_processing', 'pending_to_on-hold', 'pending_to_completed', 'failed_to_processing', 'failed_to_on-hold', 'failed_to_completed', 'cancelled_to_processing', 'cancelled_to_on-hold', 'cancelled_to_completed'] as $t) {
+            $this->assertContains('woocommerce_order_status_' . $t, $h, $t);
+        }
+    }
+
+    public function test_entities_in_saved_template_are_decoded(): void
+    {
+        $GLOBALS['wp_options']['vois_wc_tpl_processing'] = 'Kargo &amp; teslimat: {siparis_no} &#039;hazır&#039;';
+        $this->notifier()->handle(7, 'customer', 'processing');
+        $this->assertSame("Kargo & teslimat: 7 'hazır'", $this->sent[0]['content']);
     }
 }

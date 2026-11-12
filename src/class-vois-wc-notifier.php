@@ -23,8 +23,12 @@ final class Vois_WC_Notifier
     public function register()
     {
         add_action('woocommerce_order_status_changed', [$this, 'on_status_changed'], 10, 3);
-        add_action('woocommerce_checkout_order_processed', [$this, 'on_new_order'], 10, 1);
-        add_action('woocommerce_store_api_checkout_order_processed', [$this, 'on_store_api_order'], 10, 1);
+        // Same triggers as WooCommerce's own "New order" e-mail: only after payment / acceptance, also for admin and REST orders.
+        foreach (['pending', 'failed', 'cancelled'] as $from) {
+            foreach (['processing', 'on-hold', 'completed'] as $to) {
+                add_action('woocommerce_order_status_' . $from . '_to_' . $to, [$this, 'on_new_order'], 10, 1);
+            }
+        }
         add_action(self::ACTION, [$this, 'handle'], 10, 3);
     }
 
@@ -39,14 +43,6 @@ final class Vois_WC_Notifier
     {
         if (Vois_WC_Options::api_key() !== '' && Vois_WC_Options::get('admin_on', 'no') === 'yes') {
             $this->enqueue((int) $order_id, 'admin', 'new');
-        }
-    }
-
-    /** @param WC_Order $order */
-    public function on_store_api_order($order)
-    {
-        if (is_object($order) && method_exists($order, 'get_id')) {
-            $this->on_new_order($order->get_id());
         }
     }
 
@@ -73,7 +69,7 @@ final class Vois_WC_Notifier
             return;
         }
 
-        $text = trim(Vois_WC_Template::render(Vois_WC_Options::template($kind === 'admin' ? 'admin' : $status), Vois_WC_Template::order_vars($order, (string) Vois_WC_Options::get('tracking_meta'))));
+        $text = trim(wp_specialchars_decode(Vois_WC_Template::render(Vois_WC_Options::template($kind === 'admin' ? 'admin' : $status), Vois_WC_Template::order_vars($order, (string) Vois_WC_Options::get('tracking_meta'))), ENT_QUOTES));
         if ($text === '') {
             return;
         }
@@ -88,7 +84,7 @@ final class Vois_WC_Notifier
             $ok = [];
             $errors = [];
             foreach ($numbers as $n) {
-                $r = $this->send($order, $n, $text, 'wc-' . $order->get_id() . '-admin-' . $n);
+                $r = $this->send($order, $n, $text, self::custom_id($order, 'admin-' . $n));
                 if ($r['ok']) {
                     $ok[] = self::mask($n);
                 } else {
@@ -113,7 +109,7 @@ final class Vois_WC_Notifier
 
             return;
         }
-        $r = $this->send($order, $number, $text, 'wc-' . $order->get_id() . '-' . $status);
+        $r = $this->send($order, $number, $text, self::custom_id($order, $status));
         if ($r['ok']) {
             $this->mark_sent($order, $sent, $tag);
         }
@@ -131,7 +127,7 @@ final class Vois_WC_Notifier
         if ($text === '') {
             return ['ok' => false, 'code' => 'empty', 'message' => __('SMS metni boş.', 'vois-woocommerce')];
         }
-        $r = $this->send($order, $number, $text, 'wc-' . $order->get_id() . '-manual-' . time());
+        $r = $this->send($order, $number, $text, self::custom_id($order, 'manual-' . time()));
         $this->note_result($order, $number, $text, $r);
 
         return $r;
@@ -167,6 +163,15 @@ final class Vois_WC_Notifier
         $sent[] = $tag;
         $order->update_meta_data(self::SENT_META, array_values(array_unique($sent)));
         $order->save();
+    }
+
+    /**
+     * wc-<site>-<order id>-<suffix>. The site part keeps two shops (or a staging copy) on one VOIS account apart;
+     * the id stays deterministic so the SMS service also rejects a duplicate status SMS.
+     */
+    public static function custom_id($order, $suffix)
+    {
+        return 'wc-' . substr(md5((string) home_url()), 0, 6) . '-' . $order->get_id() . '-' . $suffix;
     }
 
     /** 905321234567 → 0532***4567 */

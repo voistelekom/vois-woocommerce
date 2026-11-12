@@ -13,6 +13,7 @@ final class Vois_WC_Settings_Page extends WC_Settings_Page
         add_action('woocommerce_admin_field_vois_test', [$this, 'field_test']);
         add_filter('woocommerce_admin_settings_sanitize_option_vois_wc_api_key', [$this, 'sanitize_api_key'], 10, 3);
         add_filter('woocommerce_admin_settings_sanitize_option_vois_wc_default_extension', [$this, 'sanitize_extension'], 10, 3);
+        add_filter('woocommerce_admin_settings_sanitize_option', [$this, 'sanitize_text_option'], 10, 3);
     }
 
     /** WooCommerce 5.5+ */
@@ -34,6 +35,9 @@ final class Vois_WC_Settings_Page extends WC_Settings_Page
         ];
         foreach (wc_get_order_statuses() as $key => $label) {
             $slug = strpos($key, 'wc-') === 0 ? substr($key, 3) : $key;
+            if ($slug === 'checkout-draft') {
+                continue; // block checkout's internal draft status, never seen by customers
+            }
             $s[] = ['type' => 'checkbox', 'id' => 'vois_wc_on_' . $slug, 'title' => $label,
                 'desc' => __('Bu durumda müşteriye SMS gönder', 'vois-woocommerce'), 'default' => $slug === 'processing' ? 'yes' : 'no'];
             $s[] = ['type' => 'textarea', 'id' => 'vois_wc_tpl_' . $slug, 'title' => '',
@@ -64,12 +68,6 @@ final class Vois_WC_Settings_Page extends WC_Settings_Page
         $s[] = ['type' => 'sectionend', 'id' => 'vois_wc_advanced'];
 
         return $s;
-    }
-
-    /** Older WooCommerce (< 5.5) entry point. */
-    public function get_settings($current_section = '')
-    {
-        return method_exists(get_parent_class($this), 'get_settings_for_section') ? parent::get_settings($current_section) : $this->get_settings_for_default_section();
     }
 
     /** Masked: the saved key is never printed back into the page. */
@@ -120,6 +118,22 @@ final class Vois_WC_Settings_Page extends WC_Settings_Page
     {
         $raw = trim((string) $raw);
 
-        return preg_match('/^\d{0,10}$/', $raw) ? $raw : (string) Vois_WC_Options::get('default_extension');
+        if (preg_match('/^\d{0,10}$/', $raw)) {
+            return $raw;
+        }
+        WC_Admin_Settings::add_error(__('Varsayılan dahili yalnız rakamlardan oluşmalı (en çok 10 hane). Eski değer korundu.', 'vois-woocommerce'));
+
+        return (string) Vois_WC_Options::get('default_extension');
+    }
+
+    /** SMS templates and number lists: keep the typed text (no &amp; entities, no lost "%20"). */
+    public function sanitize_text_option($value, $option, $raw)
+    {
+        $id = isset($option['id']) ? (string) $option['id'] : '';
+        if (strpos($id, 'vois_wc_tpl_') === 0 || $id === 'vois_wc_admin_numbers') {
+            return Vois_WC_Admin::clean_text($raw);
+        }
+
+        return $value;
     }
 }

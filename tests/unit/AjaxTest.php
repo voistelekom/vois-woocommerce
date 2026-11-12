@@ -109,4 +109,26 @@ final class AjaxTest extends TestCase
         $this->assertStringNotContainsString('0123456789abcdef0123456789abcdef', $html);
         $this->assertStringContainsString('value=""', $html);
     }
+
+    public function test_manual_sms_keeps_percent_figures(): void
+    {
+        $_POST['text'] = 'Size özel %20 indirim, %50\'ye varan <b>fırsat</b>';
+        $this->assertTrue($this->run_ajax([$this->admin(), 'ajax_manual_sms'])->success);
+        $this->assertSame("Size özel %20 indirim, %50'ye varan fırsat", $this->requests[0][1]['content']);
+    }
+
+    public function test_template_and_numbers_saved_raw_without_entities(): void
+    {
+        $p = new Vois_WC_Settings_Page();
+        $this->assertSame("Kargo & teslimat %20 'x'", $p->sanitize_text_option('Kargo &amp; teslimat', ['id' => 'vois_wc_tpl_completed'], "  Kargo & teslimat %20 'x' <script>"));
+        $this->assertSame('keep', $p->sanitize_text_option('keep', ['id' => 'woocommerce_other'], 'raw'));
+    }
+
+    public function test_bad_default_extension_reports_error(): void
+    {
+        WC_Admin_Settings::$errors = [];
+        $p = new Vois_WC_Settings_Page();
+        $this->assertSame('', $p->sanitize_extension('', null, '10a'));
+        $this->assertCount(1, WC_Admin_Settings::$errors);
+    }
 }

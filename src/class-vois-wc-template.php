@@ -29,7 +29,7 @@ final class Vois_WC_Template
             'siparis_durumu' => (string) wc_get_order_status_name($order->get_status()),
             'siparis_tarihi' => $date ? $date->date_i18n('d.m.Y') : '',
             'odeme_yontemi'  => (string) $order->get_payment_method_title(),
-            'magaza_adi'     => (string) get_bloginfo('name'),
+            'magaza_adi'     => wp_specialchars_decode((string) get_option('blogname'), ENT_QUOTES),
             'kargo_takip'    => $tracking_meta_key !== '' ? (string) $order->get_meta($tracking_meta_key, true) : '',
         ];
     }

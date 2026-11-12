@@ -10,6 +10,7 @@ final class TemplateTest extends TestCase
 
     public function test_order_vars(): void
     {
+        $GLOBALS['wp_options']['blogname'] = 'Test Mağaza';
         $o = new Fake_Order(7, ['number' => 'A-1007']);
         $o->meta['_kargo_no'] = 'YK123';
         $v = Vois_WC_Template::order_vars($o, '_kargo_no');
@@ -29,5 +30,12 @@ final class TemplateTest extends TestCase
         $v = Vois_WC_Template::order_vars(new Fake_Order(8, ['total' => '99.5', 'currency' => 'EUR']), '');
         $this->assertSame('99,50 EUR', $v['siparis_tutari']);
         $this->assertSame('', $v['kargo_takip']);
+    }
+
+    public function test_shop_name_is_not_html_encoded(): void
+    {
+        $GLOBALS['wp_options']['blogname'] = "Ayşe&#039;nin Butiği &amp; Ev";
+        $this->assertSame("Ayşe'nin Butiği & Ev", Vois_WC_Template::order_vars(new Fake_Order(1), '')['magaza_adi']);
+        unset($GLOBALS['wp_options']['blogname']);
     }
 }

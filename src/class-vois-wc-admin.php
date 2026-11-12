@@ -34,6 +34,15 @@ final class Vois_WC_Admin
 
     /* ---------- pure helpers (unit tested) ---------- */
 
+    /**
+     * Plain SMS text: no tags, valid UTF-8, trimmed. Unlike sanitize_textarea_field it keeps "%20" (percent figures).
+     * Output is escaped wherever it is shown.
+     */
+    public static function clean_text($raw)
+    {
+        return trim(wp_strip_all_tags(wp_check_invalid_utf8((string) $raw)));
+    }
+
     /** The caller's extension: user profile first, then the shop default. */
     public static function extension_for_user($user_id)
     {
@@ -67,6 +76,9 @@ final class Vois_WC_Admin
                 $labels[] = self::SCOPE_LABELS[$s];
             }
             $lines[] = sprintf(__('Anahtarda eksik yetki: %s. Panelde (Ayarlar › API & Webhook) bu yetkilerle yeni bir anahtar oluşturun.', 'vois-woocommerce'), implode(', ', $labels));
+            if (! array_intersect(['sms:send', 'sms:read'], $scopes)) {
+                $lines[] = __('Panelde SMS yetkileri görünmüyorsa hesabınızda SMS hizmeti tanımlı değildir. VOIS destek ile görüşün.', 'vois-woocommerce');
+            }
         }
 
         $senders = [];
@@ -139,7 +151,7 @@ final class Vois_WC_Admin
             'sending'       => __('Gönderiliyor…', 'vois-woocommerce'),
             'calling'       => __('Aranıyor…', 'vois-woocommerce'),
             'testing'       => __('Sınanıyor…', 'vois-woocommerce'),
-            'failed'        => __('İstek tamamlanamadı. Sayfayı yenileyip tekrar deneyin.', 'vois-woocommerce'),
+            'failed'        => __('Yanıt alınamadı. SMS yine de gönderilmiş olabilir: tekrar denemeden önce sayfayı yenileyip sipariş notlarına bakın.', 'vois-woocommerce'),
         ]);
     }
 
@@ -162,7 +174,7 @@ final class Vois_WC_Admin
     public function ajax_manual_sms()
     {
         $order = $this->order_from_request();
-        $text = isset($_POST['text']) ? sanitize_textarea_field(wp_unslash($_POST['text'])) : '';
+        $text = isset($_POST['text']) ? self::clean_text(wp_unslash($_POST['text'])) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- cleaned by clean_text
         if (mb_strlen($text) > 1000) {
             wp_send_json_error(['message' => __('SMS metni en fazla 1000 karakter olabilir.', 'vois-woocommerce')]);
         }

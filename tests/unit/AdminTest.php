@@ -33,6 +33,7 @@ final class AdminTest extends TestCase
         foreach (['sms:send', 'sms:read', 'voice:call'] as $s) {
             $this->assertStringContainsString($s, $text);
         }
+        $this->assertStringContainsString('SMS hizmeti', $text, 'tenants without SMS cannot pick SMS scopes: say so');
     }
 
     public function test_report_voice_scope_not_required_when_click_to_call_off(): void

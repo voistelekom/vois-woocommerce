@@ -109,4 +109,13 @@ final class ApiTest extends TestCase
             $this->assertStringNotContainsStringIgnoringCase('voice telekom', Vois_WC_Errors::message($c, 'Voice Telekom hata', 400));
         }
     }
+
+    public function test_encoding_unicode_for_chars_outside_gsm_and_turkish(): void
+    {
+        foreach (['Teşekkürler 😊', 'Hâlâ geçerli', 'Mağaza’mız', 'Ali – Veli', 'Ирина'] as $t) {
+            $this->assertSame(2, Vois_WC_Api::sms_body('9', $t, 'S', 'xxxxx', 'c')['encoding'], $t);
+        }
+        $this->assertSame(1, Vois_WC_Api::sms_body('9', 'Sipariş #12 %20 indirim {ok} €', 'S', 'xxxxx', 'c')['encoding']);
+        $this->assertSame(0, Vois_WC_Api::sms_body('9', 'Siparis #12 hazir. Tesekkurler!', 'S', 'xxxxx', 'c')['encoding']);
+    }
 }
