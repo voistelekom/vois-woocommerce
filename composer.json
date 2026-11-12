@@ -1,0 +1,16 @@
+{
+    "name": "vois/vois-woocommerce",
+    "description": "VOIS for WooCommerce: order SMS and click-to-call",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "phpcompatibility/php-compatibility": "^9.3",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.2"
+    },
+    "autoload-dev": { "classmap": ["src/"] },
+    "config": { "platform-check": false,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        } }
+}
